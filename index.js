@@ -13,11 +13,19 @@ app.use(cors());
 // In-memory OTP store (can be replaced with MongoDB)
 const otpStore = new Map();
 
-// Rate limiting: max 3 requests per IP per hour
+// Rate limiting: max 3 requests per IP per hour for sending OTP
 const limiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 3,
-  message: { error: "Too many requests from this IP, please try again later." },
+  message: async (req, res) => {
+    return {
+      success: false,
+      message: "Too many requests from this IP, please try again in an hour.",
+      remaining: 0,
+    };
+  },
+  standardHeaders: true, 
+  legacyHeaders: false,
 });
 app.use("/send-otp", limiter);
 
@@ -32,7 +40,7 @@ app.post("/send-otp", async (req, res) => {
 
   if (!email || !isValidEmail(email)) {
     console.log(`[OTP] Invalid email received: ${email}`);
-    return res.status(400).json({ error: "Invalid or missing email address." });
+    return res.status(400).json({ success: false, message: "Invalid or missing email address." });
   }
 
   const otp = Math.floor(100000 + Math.random() * 900000); // 6-digit OTP
@@ -43,10 +51,10 @@ app.post("/send-otp", async (req, res) => {
     otpStore.set(email, { otp, expiresAt });
     console.log(`[OTP] OTP sent to ${email}: ${otp}`);
 
-    return res.status(200).json({ message: "OTP sent successfully." });
+    return res.status(200).json({ success: true, message: "OTP sent successfully." });
   } catch (error) {
     console.error(`[OTP] Failed to send OTP to ${email}:`, error);
-    return res.status(500).json({ error: "Failed to send OTP. Please try again." });
+    return res.status(500).json({ success: false, message: "Failed to send OTP. Please try again." });
   }
 });
 
@@ -57,30 +65,30 @@ app.post("/verify-otp", (req, res) => {
 
   if (!email || !isValidEmail(email) || !otp) {
     console.log(`[OTP] Missing or invalid data in verify request.`);
-    return res.status(400).json({ error: "Email and OTP are required." });
+    return res.status(400).json({ success: false, message: "Email and OTP are required." });
   }
 
   const record = otpStore.get(email);
 
   if (!record) {
     console.log(`[OTP] No OTP record found for email: ${email}`);
-    return res.status(400).json({ error: "No OTP found for this email." });
+    return res.status(400).json({ success: false, message: "No OTP found for this email." });
   }
 
   if (Date.now() > record.expiresAt) {
     otpStore.delete(email);
     console.log(`[OTP] OTP expired for email: ${email}`);
-    return res.status(400).json({ error: "OTP has expired." });
+    return res.status(400).json({ success: false, message: "OTP has expired." });
   }
 
   if (record.otp.toString() !== otp.toString()) {
     console.log(`[OTP] Invalid OTP entered for email: ${email}`);
-    return res.status(400).json({ error: "Invalid OTP." });
+    return res.status(400).json({ success: false, message: "Invalid OTP." });
   }
 
   otpStore.delete(email);
   console.log(`[OTP] OTP verified successfully for email: ${email}`);
-  return res.status(200).json({ message: "OTP verified successfully." });
+  return res.status(200).json({ success: true, message: "OTP verified successfully." });
 });
 
 // --- Create HTTP server and Socket.IO server ---
