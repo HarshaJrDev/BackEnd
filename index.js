@@ -13,25 +13,23 @@ app.use(cors());
 // In-memory OTP store (can be replaced with MongoDB)
 const otpStore = new Map();
 
+// Email validation function
+const isValidEmail = (email) =>
+  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
 // Rate limiting: max 3 requests per IP per hour for sending OTP
 const limiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 3,
-  message: async (req, res) => {
-    return {
-      success: false,
-      message: "Too many requests from this IP, please try again in an hour.",
-      remaining: 0,
-    };
+  message: {
+    success: false,
+    message: "Too many requests from this IP, please try again in an hour.",
+    remaining: 0,
   },
-  standardHeaders: true, 
+  standardHeaders: true,
   legacyHeaders: false,
 });
 app.use("/send-otp", limiter);
-
-// Email validation function
-const isValidEmail = (email) =>
-  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
 // --- Send OTP Endpoint ---
 app.post("/send-otp", async (req, res) => {
@@ -48,7 +46,7 @@ app.post("/send-otp", async (req, res) => {
 
   try {
     await sendOTP(email, otp);
-    otpStore.set(email, { otp, expiresAt });
+    otpStore.set(email, { otp: String(otp), expiresAt });
     console.log(`[OTP] OTP sent to ${email}: ${otp}`);
 
     return res.status(200).json({ success: true, message: "OTP sent successfully." });
@@ -81,7 +79,7 @@ app.post("/verify-otp", (req, res) => {
     return res.status(400).json({ success: false, message: "OTP has expired." });
   }
 
-  if (record.otp.toString() !== otp.toString()) {
+  if (String(record.otp) !== String(otp)) {
     console.log(`[OTP] Invalid OTP entered for email: ${email}`);
     return res.status(400).json({ success: false, message: "Invalid OTP." });
   }
