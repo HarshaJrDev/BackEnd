@@ -1,4 +1,4 @@
-// ... (All your existing imports)
+// backend/index.js (or your main server file)
 const express = require("express");
 const dotenv = require("dotenv");
 const admin = require("firebase-admin");
@@ -24,7 +24,7 @@ const otpStore = new Map();
 const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
 const otpLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,
+  windowMs: 60 * 60 * 1000, // 1 hour
   max: 3,
   message: {
     success: false,
@@ -62,6 +62,7 @@ app.post("/send-otp", async (req, res) => {
     otpStore.set(email, { otp: String(otp), expiresAt });
     return res.status(200).json({ success: true, message: "OTP sent successfully." });
   } catch (error) {
+    console.error("[OTP] Failed to send OTP:", error);
     return res.status(500).json({ success: false, message: "Failed to send OTP." });
   }
 });
@@ -91,20 +92,21 @@ app.post("/request-role", authenticate, async (req, res) => {
     });
     res.status(200).json({ success: true, message: "Role request submitted" });
   } catch (error) {
+    console.error("[RoleRequest] Server error:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
 
 app.post("/approve-role", authenticate, async (req, res) => {
   const { userId, role, approve } = req.body;
-  const requester = await admin.firestore().collection("admins").doc(req.user.uid).get();
-  if (!requester.exists) {
-    return res.status(403).json({ success: false, message: "Admin access required" });
-  }
-  if (!["driver", "admin"].includes(role)) {
-    return res.status(400).json({ success: false, message: "Invalid role" });
-  }
   try {
+    const requester = await admin.firestore().collection("admins").doc(req.user.uid).get();
+    if (!requester.exists) {
+      return res.status(403).json({ success: false, message: "Admin access required" });
+    }
+    if (!["driver", "admin"].includes(role)) {
+      return res.status(400).json({ success: false, message: "Invalid role" });
+    }
     const roleRequestRef = admin.firestore().collection("roleRequests").doc(userId);
     const roleRequest = await roleRequestRef.get();
     if (!roleRequest.exists || roleRequest.data().requestedRole !== role) {
@@ -125,6 +127,7 @@ app.post("/approve-role", authenticate, async (req, res) => {
       res.status(200).json({ success: true, message: "Role request rejected" });
     }
   } catch (error) {
+    console.error("[ApproveRole] Server error:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
@@ -132,6 +135,11 @@ app.post("/approve-role", authenticate, async (req, res) => {
 // --- Push Notification Endpoint ---
 app.post("/send-notifications", async (req, res) => {
   const { bookingId, bookingData } = req.body;
+
+  if (!bookingId) {
+    return res.status(400).json({ success: false, message: "Missing bookingId" });
+  }
+
   try {
     const driversSnapshot = await admin.firestore().collection("drivers").get();
     const tokens = [];
@@ -139,25 +147,35 @@ app.post("/send-notifications", async (req, res) => {
       const token = doc.data()?.fcmToken;
       if (token) tokens.push(token);
     });
+
     if (tokens.length === 0) {
       return res.status(200).json({ success: false, message: "No driver tokens found" });
     }
+
+    // Prepare the multicast message
     const message = {
+      tokens,
       notification: {
-        title: "\ud83d\udce6 New Booking Request",
+        title: "📦 New Booking Request",
         body: "A new delivery is available. Tap to view details.",
       },
       data: {
         screen: "BookingDetails",
-        bookingId: bookingId,
+        bookingId: String(bookingId),
+        // you can add more bookingData fields here if needed
       },
-      tokens: tokens,
     };
+
     const response = await admin.messaging().sendMulticast(message);
-    res.status(200).json({ success: true, message: `Sent to ${response.successCount} drivers`, response });
+
+    res.status(200).json({
+      success: true,
+      message: `Notification sent to ${response.successCount} drivers.`,
+      response,
+    });
   } catch (err) {
-    console.error("[FCM Admin] Error:", err);
-    res.status(500).json({ success: false, message: err.message });
+    console.error("[FCM Admin] Error sending notifications:", err);
+    res.status(500).json({ success: false, message: err.message || "Internal Server Error" });
   }
 });
 
