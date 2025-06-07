@@ -1,4 +1,4 @@
-// backend/index.js (or your main server file)
+// backend/index.js (your main server file)
 const express = require("express");
 const dotenv = require("dotenv");
 const admin = require("firebase-admin"); // Firebase Admin SDK
@@ -6,6 +6,8 @@ const rateLimit = require("express-rate-limit");
 const cors = require("cors");
 const http = require("http");
 const { Server } = require("socket.io");
+const {google} = require('googleapis'); // Added googleapis import here
+
 const sendOTP = require("./mailer"); // Assuming this is your mailer utility
 
 // Load environment variables from .env file (for local development)
@@ -257,6 +259,7 @@ app.post("/send-notifications", async (req, res) => {
     };
 
     // Send the multicast message using Firebase Admin SDK
+    // This is the recommended way, and it handles token generation internally.
     const response = await admin.messaging().sendMulticast(message);
 
     console.log(`[FCM Admin] Sent ${response.successCount} notifications, failed for ${response.failureCount}.`);
