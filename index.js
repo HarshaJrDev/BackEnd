@@ -6,14 +6,13 @@ const cors = require("cors");
 const http = require("http");
 const { Server } = require("socket.io");
 const sendOTP = require("./mailer");
+const serviceAccount = require("./serviceAccountKey.json");
 
 // Load environment variables
 dotenv.config();
 
 // Initialize Firebase Admin SDK
-const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT
-  ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
-  : require("./serviceAccountKey.json");
+
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
