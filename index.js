@@ -5,11 +5,10 @@ const rateLimit = require("express-rate-limit");
 const http = require("http");
 const { Server } = require("socket.io");
 const { GoogleAuth } = require("google-auth-library");
-const fetch = require("node-fetch"); // You need to install node-fetch@2 if using Node 16 or below
+const fetch = require("node-fetch"); // If Node 16 or below, install node-fetch@2
 require("dotenv").config();
 
 const serviceAccountKey = require('./serviceAccountKey.json');
-
 const admin = require("firebase-admin");
 
 // Initialize Firebase Admin SDK (do once)
@@ -91,7 +90,7 @@ app.post("/verify-otp", (req, res) => {
 // --- FCM HTTP v1 API setup ---
 
 const SCOPES = ["https://www.googleapis.com/auth/firebase.messaging"];
-const FIREBASE_PROJECT_ID = 'kalanabha-f6fcf'; // Your Firebase project ID
+const FIREBASE_PROJECT_ID = 'kalanabha-f6fcf'; // Replace with your Firebase project ID
 
 async function getAccessToken() {
   const auth = new GoogleAuth({ scopes: SCOPES });
@@ -205,7 +204,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("send_message", ({ roomId, message, senderId }) => {
-    socket.to(roomId).emit("receive_message", { message, senderId });
+    socket.to(roomId).emit("receive_message", { message, senderId, timestamp: new Date().toISOString() });
   });
 
   socket.on("disconnect", () => {
