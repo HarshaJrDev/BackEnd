@@ -102,7 +102,7 @@ async function getAccessToken() {
 // Send notification with FCM HTTP v1 API
 async function sendFcmMessage(token, title, body, data = {}) {
   const accessToken = await getAccessToken();
-  const url = `https://fcm.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/messages:send`;
+  const url = 'https://fcm.googleapis.com/v1/projects/kalanabha-f6fcf/messages:send';
 
   const messagePayload = {
     message: {
