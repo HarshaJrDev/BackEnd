@@ -7,7 +7,7 @@ const { Server } = require("socket.io");
 const { google } = require("googleapis");
 const axios = require("axios");
 require("dotenv").config();
-const serviceAccountKey = require("../BackEnd/serviceAccountKey.json");
+const serviceAccountKey = require("./serviceAccountKey.json");
 const admin = require("firebase-admin");
 
 // Initialize Firebase Admin SDK
